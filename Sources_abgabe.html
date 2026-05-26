@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sources</title>
+        <link rel="stylesheet" href="Styles_Sources.css">
+    </head>
+    <body>
+        <script>
+        const DISCLAIMER_COOKIE_NAME = 'disclaimer_accepted';
+        const DISCLAIMER_REDIRECT = 'disclaimer_abgabe.html';
+
+        function getCookie(name) {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop().split(';').shift();
+          return null;
+        }
+
+        function getLocalStorageAcceptance(name) {
+          try {
+            const raw = localStorage.getItem(name);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            return data && data.value === 'true' && data.expires && Date.now() < data.expires;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        function isDisclaimerAccepted() {
+          if (getCookie(DISCLAIMER_COOKIE_NAME) === 'true') return true;
+          return getLocalStorageAcceptance(DISCLAIMER_COOKIE_NAME);
+        }
+
+        if (!isDisclaimerAccepted()) {
+          window.location.replace(DISCLAIMER_REDIRECT);
+        }
+        </script>
+        <div class="title">Sources</div>
+        <br>
+        <hr>
+        <br>
+        <div id="name"><span>Moritz Mathieu</span></div>
+        <br>
+        <div id="Postanschrift">Berliner Hochschule für Technik (BHT)</div>
+        <div id="Adresszeile_1">Luxemburger Straße 10</div>
+        <div id="Adresszeile_2">13353 Berlin</div>
+        <br>
+        <div id="Telefonnummer"><span>Phone Number:</span> 030 4504-0 </div>
+        <div><span>E-Mail: </span><a href="mailto:moma9621@bht-berlin.de">moma9621@bht-berlin.de</a></div>
+        <br>
+        <div id="Background_Map"><span>Background Map:</span></div>
+        <div id="OSM">OpenStreetMap</div>
+        <div id="Legal_1">© OpenStreetMap contributors</div>
+        <br>
+        <div id="Shapes"><span>Spatial Data:</span></div>
+        <div id="Legal_2"><a href="https://unrestricted.omeka.net/items/show/25" target="_blank" rel="noopener">Brandan P. Buck , “Japanese Merchant Fleet Sinkings Shapefile,” Unrestricted: The Campaign to Sink the Japanese Merchant Fleet During World War II</a>, accessed May 4, 2026.</div>
+        <br>
+        <br>
+        <div id="Disclaimer">This website was created as part of a study project.</div>
+        <br>
+        <br>
+        <br>
+        <button onclick="window.location.href='index.html'">Take me back!</button>
+    </body>
+</html>
+
+

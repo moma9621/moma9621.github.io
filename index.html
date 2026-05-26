@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Japanese Merchant Fleet Sinkings</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="styles_Main_Page.css" />
+</head>
+  <body>
+
+    <header>Japanese Merchant Fleet Sinkings in the Second World War</header>
+    
+   <main> 
+    <div id="controls">
+      <label for="yearFilter">Filter by year</label>
+      <select id="yearFilter" aria-label="Jahr filtern">
+        <option value="all">1941-1945</option>
+      </select>
+      <div style="margin-top:8px">
+        <input type="checkbox" id="clusterToggle" /> <label for="clusterToggle"> Cluster overlapping points</label>
+      </div>
+      <div class="note">Filter will be applied automatically after selection.</div>
+    </div>
+    <div id="rand">
+      <div id="map"></div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+      <script>
+
+        const DISCLAIMER_COOKIE_NAME = 'disclaimer_accepted';
+        const DISCLAIMER_REDIRECT = 'disclaimer_abgabe.html';
+
+        function getCookie(name) {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop().split(';').shift();
+          return null;
+        }
+
+        function getLocalStorageAcceptance(name) {
+          try {
+            const raw = localStorage.getItem(name);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            return data && data.value === 'true' && data.expires && Date.now() < data.expires;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        function isDisclaimerAccepted() {
+          if (getCookie(DISCLAIMER_COOKIE_NAME) === 'true') return true;
+          return getLocalStorageAcceptance(DISCLAIMER_COOKIE_NAME);
+        }
+
+        if (!isDisclaimerAccepted()) {
+          window.location.replace(DISCLAIMER_REDIRECT);
+        }
+
+        /* ---------------------------
+           Konfiguration: GeoJSON-Dateinamen (im gleichen Verzeichnis)
+           Passe bei Bedarf die Dateinamen/Pfade an.
+           --------------------------- */
+        var geoFiles = [
+          "41_42.geojson",
+          "43.geojson",
+          "44.geojson",
+          "45.geojson"
+        ];
+
+        /* ---------------------------
+           Viele var-Bausteine (bewusst)
+           --------------------------- */
+        var map;
+        var osmLayer;
+        var combinedLayer;
+        var layerByFile = {};
+        var rawGeoJsonByFile = {};
+        var clusterGroup;
+        var isClustering = false;
+        var defaultMarkerOptions;
+        var highlightOptions;
+        var yearSelect;
+        var collectedYears = {};
+        var autoResetTimer = null;
+        var AUTO_RESET_MS = 120000; // 120 Sekunden Inaktivität -> Reset
+        var initialBounds = null;
+        var pacificBounds = L.latLngBounds([[-60, 100], [60, 260]]).pad(0.25);
+
+        /* ---------------------------
+           Karte initialisieren (Pacific-zentrierte Ansicht)
+           --------------------------- */
+        map = L.map('map', {
+          preferCanvas: true,
+          worldCopyJump: true,
+          crs: L.CRS.EPSG3857,
+          minZoom: 3,
+          maxZoom: 19,
+          maxBounds: pacificBounds,
+          maxBoundsViscosity: 0.85
+        }).setView([0, 180], 4);
+
+        osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors',
+          noWrap: false,
+          className: 'map-tiles'
+        }).addTo(map);
+
+        combinedLayer = L.layerGroup().addTo(map);
+        clusterGroup = L.markerClusterGroup();
+
+        defaultMarkerOptions = {
+          radius: 5,
+          fillColor: "#ff0000",
+          color: "#222",
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.85
+        };
+
+        highlightOptions = {
+          radius: 9,
+          fillColor: "#00ccff",
+          color: "#000",
+          weight: 2,
+          fillOpacity: 1
+        };
+
+        yearSelect = document.getElementById('yearFilter');
+        var clusterToggle = document.getElementById('clusterToggle');
+
+        /* ---------------------------
+           Hilfsfunktionen
+           --------------------------- */
+        /* ---------------------------
+           Wrap-Funktion: Dupliziert GeoJSON-Features über die Datumsgrenze
+           --------------------------- */
+        var wrapGeoJSON = function(geojson) {
+          if (!geojson || !geojson.features) return geojson;
+          var wrappedFeatures = [];
+          
+          // Original-Features hinzufügen
+          for (var i = 0; i < geojson.features.length; i++) {
+            wrappedFeatures.push(JSON.parse(JSON.stringify(geojson.features[i])));
+          }
+          
+          // Duplizierte Features mit angepassten Koordinaten hinzufügen
+          for (var i = 0; i < geojson.features.length; i++) {
+            var feature = geojson.features[i];
+            var copy360 = JSON.parse(JSON.stringify(feature));
+            var copy_360 = JSON.parse(JSON.stringify(feature));
+            
+            // Koordinaten um +360 verschieben (rechts)
+            if (copy360.geometry.type === 'Point') {
+              copy360.geometry.coordinates[0] += 360;
+            } else if (copy360.geometry.type === 'LineString' || copy360.geometry.type === 'MultiPoint') {
+              for (var j = 0; j < copy360.geometry.coordinates.length; j++) {
+                copy360.geometry.coordinates[j][0] += 360;
+              }
+            } else if (copy360.geometry.type === 'Polygon' || copy360.geometry.type === 'MultiLineString') {
+              for (var j = 0; j < copy360.geometry.coordinates.length; j++) {
+                for (var k = 0; k < copy360.geometry.coordinates[j].length; k++) {
+                  copy360.geometry.coordinates[j][k][0] += 360;
+                }
+              }
+            } else if (copy360.geometry.type === 'MultiPolygon') {
+              for (var j = 0; j < copy360.geometry.coordinates.length; j++) {
+                for (var k = 0; k < copy360.geometry.coordinates[j].length; k++) {
+                  for (var l = 0; l < copy360.geometry.coordinates[j][k].length; l++) {
+                    copy360.geometry.coordinates[j][k][l][0] += 360;
+                  }
+                }
+              }
+            }
+            wrappedFeatures.push(copy360);
+            
+            // Koordinaten um -360 verschieben (links)
+            if (copy_360.geometry.type === 'Point') {
+              copy_360.geometry.coordinates[0] -= 360;
+            } else if (copy_360.geometry.type === 'LineString' || copy_360.geometry.type === 'MultiPoint') {
+              for (var j = 0; j < copy_360.geometry.coordinates.length; j++) {
+                copy_360.geometry.coordinates[j][0] -= 360;
+              }
+            } else if (copy_360.geometry.type === 'Polygon' || copy_360.geometry.type === 'MultiLineString') {
+              for (var j = 0; j < copy_360.geometry.coordinates.length; j++) {
+                for (var k = 0; k < copy_360.geometry.coordinates[j].length; k++) {
+                  copy_360.geometry.coordinates[j][k][0] -= 360;
+                }
+              }
+            } else if (copy_360.geometry.type === 'MultiPolygon') {
+              for (var j = 0; j < copy_360.geometry.coordinates.length; j++) {
+                for (var k = 0; k < copy_360.geometry.coordinates[j].length; k++) {
+                  for (var l = 0; l < copy_360.geometry.coordinates[j][k].length; l++) {
+                    copy_360.geometry.coordinates[j][k][l][0] -= 360;
+                  }
+                }
+              }
+            }
+            wrappedFeatures.push(copy_360);
+          }
+          
+          return {
+            type: "FeatureCollection",
+            features: wrappedFeatures
+          };
+        };
+
+        var getGeoJsonBounds = function(geojson) {
+          if (!geojson || !geojson.features || geojson.features.length === 0) return null;
+          try {
+            var layer = L.geoJSON(geojson);
+            var bounds = layer.getBounds();
+            return bounds && bounds.isValid && bounds.isValid() ? bounds : null;
+          } catch(e) {
+            return null;
+          }
+        };
+
+        var addGeoLayerToGroup = function(geoLayer, targetGroup) {
+          try {
+            geoLayer.eachLayer(function(l){
+              targetGroup.addLayer(l);
+            });
+          } catch(e){}
+        };
+
+        var escapeHtml = function (str) {
+          if (str === null || str === undefined) return '';
+          return String(str).replace(/[&<>"'`=\/]/g, function (s) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
+          });
+        };
+
+        var propsToHtml = function(props) {
+          var html = '<div class="prop-table">';
+          var keys = Object.keys(props || {});
+          var order = ['Day','Month','Year','Name of Ve','Type of Ve','Flag of Ag','Type of Ag','Standard T','Assessment'];
+         /* Anpassen von den Namen und Entfernung der Fragezeichen!*/
+          for (var i=0;i<order.length;i++) {
+            var k = order[i];
+            if (props.hasOwnProperty(k)) {
+              html += '<div><b>' + escapeHtml(k) + ':</b> ' + escapeHtml(String(props[k])) + '</div>';
+            }
+          }
+          for (var j=0;j<keys.length;j++) {
+            var key = keys[j];
+            if (order.indexOf(key) !== -1) continue;
+            html += '<div><b>' + escapeHtml(key) + ':</b> ' + escapeHtml(String(props[key])) + '</div>';
+          }
+          html += '</div>';
+          return html;
+        };
+
+        var onEachFeature = function(feature, layer) {
+          if (!feature || !feature.properties) return;
+          var tooltipHtml = propsToHtml(feature.properties);
+
+          layer.on({
+            mouseover: function(e) {
+              var target = e.target;
+              if (target.setStyle) {
+                try { target.setStyle(highlightOptions); } catch(e){}
+              }
+              target.bindTooltip(tooltipHtml, {direction:'auto', sticky:true, className:'custom-tooltip'}).openTooltip();
+            },
+            mouseout: function(e) {
+              var target = e.target;
+              if (target.setStyle) {
+                try { target.setStyle(defaultMarkerOptions); } catch(e){}
+              }
+              target.closeTooltip();
+            },
+            click: function(e) {
+              layer.bindPopup(tooltipHtml).openPopup();
+            }
+          });
+        };
+
+        /* ---------------------------
+           GeoJSON laden (fetch) und Layer erzeugen
+           --------------------------- */
+        var loadAllGeoFiles = function(files) {
+          var promises = [];
+          for (var i=0;i<files.length;i++) {
+            (function(filename){
+              var p = fetch(filename).then(function(resp){
+                if (!resp.ok) throw new Error('Fehler beim Laden: ' + filename + ' (' + resp.status + ')');
+                return resp.json();
+              }).then(function(json){
+                rawGeoJsonByFile[filename] = json;
+                layerByFile[filename] = createLayerFromGeoJSON(json);
+                collectYearsFromGeojson(json);
+              }).catch(function(err){
+                console.error(err);
+                rawGeoJsonByFile[filename] = { type: "FeatureCollection", features: [] };
+                layerByFile[filename] = L.layerGroup();
+              });
+              promises.push(p);
+            })(files[i]);
+          }
+          return Promise.all(promises);
+        };
+
+        var createLayerFromGeoJSON = function(geojson) {
+          var wrappedGeoJSON = wrapGeoJSON(geojson);
+          var layer = L.geoJSON(wrappedGeoJSON, {
+            pointToLayer: function(feature, latlng) {
+              return L.circleMarker(latlng, defaultMarkerOptions);
+            },
+            onEachFeature: onEachFeature
+          });
+          return layer;
+        };
+
+        var collectYearsFromGeojson = function(geojson) {
+          if (!geojson || !geojson.features) return;
+          for (var i=0;i<geojson.features.length;i++) {
+            var p = geojson.features[i].properties || {};
+            if (p.Year !== undefined && p.Year !== null) {
+              collectedYears[String(p.Year)] = true;
+            }
+          }
+        };
+
+        var populateYearSelect = function() {
+          var years = Object.keys(collectedYears).sort();
+          for (var i=0;i<years.length;i++) {
+            var opt = document.createElement('option');
+            opt.value = years[i];
+            opt.textContent = years[i];
+            yearSelect.appendChild(opt);
+          }
+        };
+
+        /* ---------------------------
+           Filter anwenden (Jahr)
+           --------------------------- */
+        var applyYearFilter = function(year) {
+          combinedLayer.clearLayers();
+          clusterGroup.clearLayers();
+          var anyLayerBounds = null;
+
+          var addFiltered = function(filename) {
+            var geojson = rawGeoJsonByFile[filename];
+            if (!geojson || !geojson.features) return;
+            var filtered = { type: "FeatureCollection", features: [] };
+            for (var i=0;i<geojson.features.length;i++) {
+              var f = geojson.features[i];
+              var p = f.properties || {};
+              if (year === 'all' || String(p.Year) === String(year)) filtered.features.push(f);
+            }
+            var wrappedFiltered = wrapGeoJSON(filtered);
+            var newLayer = L.geoJSON(wrappedFiltered, {
+              pointToLayer: function(feature, latlng) { return L.circleMarker(latlng, defaultMarkerOptions); },
+              onEachFeature: onEachFeature
+            });
+            // Add features either to clusterGroup or to combinedLayer depending on toggle
+            if (isClustering) {
+              addGeoLayerToGroup(newLayer, clusterGroup);
+            } else {
+              addGeoLayerToGroup(newLayer, combinedLayer);
+            }
+            try {
+              var b = getGeoJsonBounds(filtered);
+              if (b && b.isValid && b.isValid()) {
+                if (!anyLayerBounds) anyLayerBounds = b;
+                else anyLayerBounds.extend(b);
+              }
+            } catch(e){}
+          };
+
+          for (var fn in rawGeoJsonByFile) {
+            if (rawGeoJsonByFile.hasOwnProperty(fn)) addFiltered(fn);
+          }
+
+          try {
+            if (anyLayerBounds && anyLayerBounds.isValid && anyLayerBounds.isValid()) {
+              map.fitBounds(anyLayerBounds, { maxZoom: 8, padding: [20, 20] });
+            } else {
+              map.fitBounds(pacificBounds, { maxZoom: 4, padding: [20, 20] });
+            }
+          } catch(e){}
+          // Ensure correct layer is shown on the map
+          try {
+            if (isClustering) {
+              if (map.hasLayer(combinedLayer)) map.removeLayer(combinedLayer);
+              if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
+            } else {
+              if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+              if (!map.hasLayer(combinedLayer)) map.addLayer(combinedLayer);
+            }
+          } catch(e){}
+        };
+
+        var startAutoResetTimer = function() {
+          if (autoResetTimer) clearTimeout(autoResetTimer);
+          autoResetTimer = setTimeout(function() {
+            if (initialBounds && initialBounds.isValid && initialBounds.isValid()) {
+              map.fitBounds(initialBounds, { maxZoom: 6, padding: [20, 20] });
+            } else {
+              map.fitBounds(pacificBounds, { maxZoom: 4, padding: [20, 20] });
+            }
+          }, AUTO_RESET_MS);
+        };
+
+        /* ---------------------------
+           UI: Event-Handler
+           --------------------------- */
+        yearSelect.addEventListener('change', function() {
+          applyYearFilter(this.value);
+          startAutoResetTimer();
+        });
+
+        clusterToggle.addEventListener('change', function() {
+          isClustering = !!this.checked;
+          // Re-apply current filter to rebuild layers into the correct group
+          applyYearFilter(yearSelect.value || 'all');
+        });
+
+        /* ---------------------------
+           Start: Dateien laden und Karte befüllen
+           --------------------------- */
+        loadAllGeoFiles(geoFiles).then(function(){
+          // kombiniere alle Layer initial in the currently active display group
+          for (var fn in layerByFile) {
+            if (layerByFile.hasOwnProperty(fn)) {
+              try {
+                if (isClustering) addGeoLayerToGroup(layerByFile[fn], clusterGroup);
+                else addGeoLayerToGroup(layerByFile[fn], combinedLayer);
+              } catch(e){}
+            }
+          }
+          // initiale Bounds aus den originalen GeoJSON-Daten speichern
+          try {
+            var allOriginalFeatures = [];
+            for (var fn2 in rawGeoJsonByFile) {
+              if (rawGeoJsonByFile.hasOwnProperty(fn2) && rawGeoJsonByFile[fn2] && rawGeoJsonByFile[fn2].features) {
+                allOriginalFeatures = allOriginalFeatures.concat(rawGeoJsonByFile[fn2].features);
+              }
+            }
+            initialBounds = getGeoJsonBounds({ type: "FeatureCollection", features: allOriginalFeatures });
+            if (initialBounds && initialBounds.isValid && initialBounds.isValid()) {
+              map.fitBounds(initialBounds, { maxZoom: 6, padding: [20, 20] });
+            } else {
+              map.fitBounds(pacificBounds, { maxZoom: 4, padding: [20, 20] });
+            }
+          } catch(e){}
+
+          // Select befüllen
+          populateYearSelect();
+
+          // initial: alle Jahre anzeigen
+          applyYearFilter('all');
+
+
+          /* Layer Control (optional, bleibt im Code aber nicht sichtbar als Auswahl UI)
+          var overlays = {};
+          for (var f in layerByFile) {
+            if (layerByFile.hasOwnProperty(f)) {
+              overlays[f] = layerByFile[f];
+            }
+          }
+          L.control.layers(null, overlays, { collapsed: true }).addTo(map);
+        }).catch(function(err){
+          console.error('Fehler beim Laden der GeoJSONs', err);
+          // Bei Fehlern bleibt die Karte leer, aber die UI funktioniert weiter */
+        });
+
+        /* ---------------------------
+           Hinweis: Bei sehr vielen Punkten empfiehlt sich Clustering (leaflet.markercluster).
+           Dieses Beispiel lädt GeoJSONs per fetch, zeigt Hover-Tooltips und setzt Filter automatisch zurück.
+           --------------------------- */
+      </script>
+    </main>
+    
+    <footer><a href="impressum_abgabe.html">Impressum - Legal Disclosure</a> | <a href="Sources_abgabe.html">Sources</a></footer>
+ 
+  </body>
+</html>
+

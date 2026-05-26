@@ -1,0 +1,49 @@
+.title    {
+          color: #b73518;
+          font-family: verdana, Geneva, Tahoma, sans-serif;
+          font-size: 48px;
+          font-weight: bold;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          }
+body      {
+          font-family: verdana, Geneva, Tahoma, sans-serif;
+          font-size: 26px;
+          background-color: #31312a;
+          color: aliceblue;
+          text-align-last: center;
+          }
+span      {
+          font-weight: bold;
+          }
+name      {
+          font-weight: bold;
+          }
+a         {
+          color: #b73518;
+          }
+button    {  
+          font-size:26px;
+          padding:10px 18px;
+          cursor:pointer;
+          }
+
+@media (max-width: 768px) {
+    .title {
+        font-size: 32px;
+        padding: 0 12px;
+    }
+    body {
+        font-size: 18px;
+        padding: 0 12px;
+    }
+    button {
+        font-size: 20px;
+        width: 100%;
+        max-width: 320px;
+        margin: 16px auto;
+        display: block;
+    }
+}
+

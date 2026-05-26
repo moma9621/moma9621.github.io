@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Disclaimer</title>
+    <link rel="stylesheet" href="styles_disclaimer.css">
+  </head>
+  <body>
+    <div class="box">
+    <h1>⚠ External Content</h1>
+    <p>
+      This Website contains an interactive map. In oder to present this map to to you, we need your permission to launch 
+      <a href="https://www.openstreetmap.org/about" target="_blank" rel="noopener">OpenStreetMap</a> and set a cookie.</p>
+
+    <button id="acceptBtn" type="button">Accept</button>
+
+    <script>
+      // Konfiguration
+      const COOKIE_NAME = 'disclaimer_accepted';
+      const COOKIE_DAYS = 7;
+      const REDIRECT_TARGET = 'index.html';
+
+      function setCookie(name, value, days) {
+        try {
+          const d = new Date();
+          d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+          const expires = 'expires=' + d.toUTCString();
+          document.cookie = name + '=' + encodeURIComponent(value) + ';' + expires + ';path=/';
+        } catch (e) {}
+      }
+
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+      }
+
+      function setAcceptance(name, value, days) {
+        setCookie(name, value, days);
+        try {
+          const expires = Date.now() + days * 24 * 60 * 60 * 1000;
+          localStorage.setItem(name, JSON.stringify({ value: value, expires: expires }));
+        } catch (e) {}
+      }
+
+      function getLocalStorageAcceptance(name) {
+        try {
+          const raw = localStorage.getItem(name);
+          if (!raw) return false;
+          const data = JSON.parse(raw);
+          return data && data.value === 'true' && data.expires && Date.now() < data.expires;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function isDisclaimerAccepted() {
+        if (getCookie(COOKIE_NAME) === 'true') return true;
+        return getLocalStorageAcceptance(COOKIE_NAME);
+      }
+
+      if (isDisclaimerAccepted()) {
+        window.location.replace(REDIRECT_TARGET);
+      }
+
+      // Klick-Handler
+      document.getElementById('acceptBtn').addEventListener('click', function() {
+        setAcceptance(COOKIE_NAME, 'true', COOKIE_DAYS);
+
+        // Kurzer Delay, damit das Cookie sicher geschrieben wird, dann ersetzen
+        setTimeout(function() {
+          window.location.replace(REDIRECT_TARGET);
+        }, 100);
+      });
+
+      // Optional: falls Nutzer die Seite per Enter bestätigt
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          document.getElementById('acceptBtn').click();
+        }
+      });
+    </script>
+    </div>
+  </body>
+</html>
+
+
+<!--<!DOCTYPE HTML>
+
+<html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <meta name="referrer" content="origin">
+        
+        <!-- My CSS -->
+        <!--<link href="styles_disclaimer.css" rel="stylesheet">
+
+        <title>Disclaimer</title>
+        <style>
+            body {
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+                font-size: 24pt;
+            }
+            span {
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+                font-size: 38pt;
+                color: #ff0000;
+            }
+            button {
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+                font-size: 24pt;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <div id="disclaimer_header"><span>⚠ Externe Inhalte ⚠</span></div>
+        <div id="disclaimer_inhalt">Auf dieser Seite wird eine interaktive Karte angezeigt. Dafür müssen Inhalte der OpenStreetMap heruntergeladen werden. Stimmen Sie zu, um fortzufahren.</div>
+        <button> <a href="index.html" >Zustimmen</a></button>
+        
+    </body>
+</html>-->
