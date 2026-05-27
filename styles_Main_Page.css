@@ -86,6 +86,7 @@ footer {text-align: center;
         top: 15px;
         font-size: 28px;
         padding: 0 12px;
+        margin-bottom: 16px;
     }
     #rand {
         padding: 50px 12px 60px;
@@ -97,7 +98,7 @@ footer {text-align: center;
         left: auto;
         width: auto;
         max-width: 98%;
-        margin: 10px auto;
+        margin: 20px auto 0 auto;
     }
     .prop-table {
         font-size: 14px;
