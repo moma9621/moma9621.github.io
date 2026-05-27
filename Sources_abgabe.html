@@ -8,6 +8,7 @@
     </head>
     <body>
         <script>
+        // Überprüft, ob der Nutzer die Disclaimer-Seite akzeptiert hat, entweder über Cookies oder Local Storage. Wenn nicht, wird er zur Disclaimer-Seite weitergeleitet.
         const DISCLAIMER_COOKIE_NAME = 'disclaimer_accepted';
         const DISCLAIMER_REDIRECT = 'disclaimer_abgabe.html';
 
@@ -49,6 +50,7 @@
         <div id="Adresszeile_2">13353 Berlin</div>
         <br>
         <div id="Telefonnummer"><span>Phone Number:</span> 030 4504-0 </div>
+        // E-Mail-Adresse als klickbarer Link
         <div><span>E-Mail: </span><a href="mailto:moma9621@bht-berlin.de">moma9621@bht-berlin.de</a></div>
         <br>
         <div id="Background_Map"><span>Background Map:</span></div>
@@ -56,6 +58,7 @@
         <div id="Legal_1">© OpenStreetMap contributors</div>
         <br>
         <div id="Shapes"><span>Spatial Data:</span></div>
+        // Quelle für die räumlichen Daten, hier als klickbarer Link dargestellt
         <div id="Legal_2"><a href="https://unrestricted.omeka.net/items/show/25" target="_blank" rel="noopener">Brandan P. Buck , “Japanese Merchant Fleet Sinkings Shapefile,” Unrestricted: The Campaign to Sink the Japanese Merchant Fleet During World War II</a>, accessed May 4, 2026.</div>
         <br>
         <br>
@@ -63,8 +66,8 @@
         <br>
         <br>
         <br>
+        // Button, der den Nutzer zurück zur Startseite führt
         <button onclick="window.location.href='index.html'">Take me back!</button>
     </body>
 </html>
-
 
