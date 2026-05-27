@@ -11,12 +11,14 @@ body      {
           color: aliceblue;
           text-align: center
           }
+/* Zusätzliche Stile für die Kontaktinformationen und Quellenangaben */
 span      {
           font-weight: bold;
           }
 name      {
           font-weight: bold;
           }
+/* Links in den Quellenangaben */
 a         {
           color: #b73518;
           }
@@ -25,7 +27,7 @@ button    {
           padding:10px 18px;
           cursor:pointer;
           }
-
+/* Responsive Design: Anpassungen für kleinere Bildschirme */
 @media (max-width: 768px) {
     .title {
         font-size: 32px;
