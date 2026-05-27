@@ -1,4 +1,3 @@
-
 body    {   font-family: Verdana, Geneva, Tahoma, sans-serif;
             padding:8px;
             color: aliceblue;
@@ -14,7 +13,8 @@ body    {   font-family: Verdana, Geneva, Tahoma, sans-serif;
             padding: 20px;               /* Innenabstand */
             border: 2px solid #b00;      /* Rahmen */
             margin: 10px auto;           /* Außenabstand */
-            box-sizing: border-box;      /* Wichtig für korrekte Größenberechnung */}
+            box-sizing: border-box;      /* Wichtig für korrekte Größenberechnung */
+        }
 a       {   color: aliceblue;
             word-break: break-word;
         }
@@ -22,6 +22,7 @@ h1      {   font-size:30px;
             color:#b00;
             text-align: center;
         }
+
 p       {
             font-size:20px;
             max-width:100%;
