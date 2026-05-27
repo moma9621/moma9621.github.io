@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Japanese Merchant Fleet Sinkings</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Leaflet CSS und MarkerCluster CSS für die Kartenanzeige -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
@@ -13,7 +14,9 @@
 
     <header>Japanese Merchant Fleet Sinkings in the Second World War</header>
     
-   <main> 
+   <main>
+    <!-- UI: Filter und Cluster-Option -->
+
     <div id="controls">
       <label for="yearFilter">Filter by year</label>
       <select id="yearFilter" aria-label="Jahr filtern">
@@ -30,7 +33,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
       <script>
-
+        /* ---------------------------
+           Cookie/LocalStorage-Check für Disclaimer-Akzeptanz
+           --------------------------- */
         const DISCLAIMER_COOKIE_NAME = 'disclaimer_accepted';
         const DISCLAIMER_REDIRECT = 'disclaimer_abgabe.html';
 
@@ -62,8 +67,7 @@
         }
 
         /* ---------------------------
-           Konfiguration: GeoJSON-Dateinamen (im gleichen Verzeichnis)
-           Passe bei Bedarf die Dateinamen/Pfade an.
+            GeoJSON-Dateien (bewusst als relative Pfade, damit sie im gleichen Verzeichnis liegen und per fetch geladen werden können)
            --------------------------- */
         var geoFiles = [
           "41_42.geojson",
@@ -73,7 +77,7 @@
         ];
 
         /* ---------------------------
-           Viele var-Bausteine (bewusst)
+            Variablen
            --------------------------- */
         var map;
         var osmLayer;
@@ -92,7 +96,7 @@
         var pacificBounds = L.latLngBounds([[-60, 100], [60, 260]]).pad(0.25);
 
         /* ---------------------------
-           Karte initialisieren (Pacific-zentrierte Ansicht)
+           Karte initialisieren (Pazifik-zentrierte Ansicht)
            --------------------------- */
         map = L.map('map', {
           preferCanvas: true,
@@ -113,7 +117,9 @@
 
         combinedLayer = L.layerGroup().addTo(map);
         clusterGroup = L.markerClusterGroup();
-
+        /* ---------------------------
+           Marker-Styles und UI-Elemente
+           --------------------------- */
         defaultMarkerOptions = {
           radius: 5,
           fillColor: "#ff0000",
@@ -235,12 +241,14 @@
             return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
           });
         };
-
+        /* ---------------------------
+           Tooltip-Content generieren (HTML) aus den Feature-Properties
+           --------------------------- */
         var propsToHtml = function(props) {
           var html = '<div class="prop-table">';
           var keys = Object.keys(props || {});
           var order = ['Day','Month','Year','Name of Ve','Type of Ve','Flag of Ag','Type of Ag','Standard T','Assessment'];
-         /* Anpassen von den Namen und Entfernung der Fragezeichen!*/
+         /* Anpassen von den Namen und Entfernung der Fragezeichen*/
           for (var i=0;i<order.length;i++) {
             var k = order[i];
             if (props.hasOwnProperty(k)) {
@@ -255,7 +263,9 @@
           html += '</div>';
           return html;
         };
-
+        /* ---------------------------
+           Event-Handler für Features (Hover-Tooltip und Klick-Popup)
+           --------------------------- */
         var onEachFeature = function(feature, layer) {
           if (!feature || !feature.properties) return;
           var tooltipHtml = propsToHtml(feature.properties);
@@ -359,7 +369,7 @@
               pointToLayer: function(feature, latlng) { return L.circleMarker(latlng, defaultMarkerOptions); },
               onEachFeature: onEachFeature
             });
-            // Add features either to clusterGroup or to combinedLayer depending on toggle
+            // Je nach Cluster-Option in die richtige Gruppe einfügen
             if (isClustering) {
               addGeoLayerToGroup(newLayer, clusterGroup);
             } else {
@@ -385,7 +395,7 @@
               map.fitBounds(pacificBounds, { maxZoom: 4, padding: [20, 20] });
             }
           } catch(e){}
-          // Ensure correct layer is shown on the map
+          // Sichtbarkeit der Layer-Gruppen entsprechend der Cluster-Option anpassen
           try {
             if (isClustering) {
               if (map.hasLayer(combinedLayer)) map.removeLayer(combinedLayer);
@@ -426,7 +436,7 @@
            Start: Dateien laden und Karte befüllen
            --------------------------- */
         loadAllGeoFiles(geoFiles).then(function(){
-          // kombiniere alle Layer initial in the currently active display group
+          // Alle Layer in die Karte einfügen (initial ohne Filter, da applyYearFilter am Ende nochmal aufgerufen wird)
           for (var fn in layerByFile) {
             if (layerByFile.hasOwnProperty(fn)) {
               try {
@@ -457,29 +467,14 @@
           // initial: alle Jahre anzeigen
           applyYearFilter('all');
 
-
-          /* Layer Control (optional, bleibt im Code aber nicht sichtbar als Auswahl UI)
-          var overlays = {};
-          for (var f in layerByFile) {
-            if (layerByFile.hasOwnProperty(f)) {
-              overlays[f] = layerByFile[f];
-            }
-          }
-          L.control.layers(null, overlays, { collapsed: true }).addTo(map);
-        }).catch(function(err){
-          console.error('Fehler beim Laden der GeoJSONs', err);
-          // Bei Fehlern bleibt die Karte leer, aber die UI funktioniert weiter */
         });
 
-        /* ---------------------------
-           Hinweis: Bei sehr vielen Punkten empfiehlt sich Clustering (leaflet.markercluster).
-           Dieses Beispiel lädt GeoJSONs per fetch, zeigt Hover-Tooltips und setzt Filter automatisch zurück.
-           --------------------------- */
       </script>
     </main>
-    
+    <!-- ---------------------------
+       Footer mit Impressum und Quellenangaben
+       --------------------------- -->
     <footer><a href="impressum_abgabe.html">Impressum - Legal Disclosure</a> | <a href="Sources_abgabe.html">Sources</a></footer>
  
   </body>
 </html>
-
